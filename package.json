@@ -1,0 +1,14 @@
+{
+  "name": "billboard-marketplace",
+  "version": "1.0.0",
+  "scripts": {
+    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "start": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd backend && npm start",
+    "client": "cd frontend && npm start"
+  },
+  "dependencies": {
+    "concurrently": "^8.2.2",
+    "mongodb": "^7.1.0"
+  }
+}
