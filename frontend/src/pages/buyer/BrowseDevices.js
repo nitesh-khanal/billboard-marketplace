@@ -20,7 +20,11 @@ export default function BrowseDevices({ onRented }) {
   const submitRent = async () => {
     setError('');
     try {
-      const res = await axios.post('/api/rentals', { deviceId: renting._id, startDate: form.startDate, endDate: form.endDate });
+      const res = await axios.post('/api/rentals', {
+        deviceId: renting._id,
+        startDate: new Date(form.startDate).toISOString(),
+        endDate: new Date(form.endDate).toISOString(),
+      });
       updateBalance(res.data.newBalance);
       setSuccess('Device rented successfully!');
       setDevices(prev => prev.filter(d => d._id !== renting._id));
