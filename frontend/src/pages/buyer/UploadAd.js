@@ -35,7 +35,12 @@ export default function UploadAd({ onUploaded }) {
       endTime:   rental ? toLocalInput(rental.endDate)   : '',
     }));
   };
-
+  const toUTC = (str) => {
+    const [date, time] = str.split('T');
+    const [y, mo, d] = date.split('-').map(Number);
+    const [h, mi] = time.split(':').map(Number);
+    return new Date(y, mo - 1, d, h, mi).toISOString();
+  };
   const submit = async e => {
     e.preventDefault(); setError(''); setLoading(true);
     try {
@@ -57,8 +62,8 @@ export default function UploadAd({ onUploaded }) {
       data.append('adName', form.adName);
       data.append('deviceId', selectedRental?.device?._id || '');
       data.append('rentalId', form.rentalId);
-      data.append('startTime', new Date(form.startTime).toISOString());
-data.append('endTime', new Date(form.endTime).toISOString());
+      data.append('startTime', toUTC(form.startTime));
+      data.append('endTime', toUTC(form.endTime));
       await axios.post('/api/ads/upload', data, { headers: { 'Content-Type': 'multipart/form-data' } });
       setSuccess('Ad uploaded and scheduled!');
       setTimeout(() => { onUploaded(); }, 1200);

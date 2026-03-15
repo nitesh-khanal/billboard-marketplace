@@ -16,14 +16,19 @@ export default function BrowseDevices({ onRented }) {
   }, []);
 
   const openRent = (device) => { setRenting(device); setError(''); setSuccess(''); setForm({ startDate: '', endDate: '' }); };
-
+  const toUTC = (str) => {
+    const [date, time] = str.split('T');
+    const [y, mo, d] = date.split('-').map(Number);
+    const [h, mi] = time.split(':').map(Number);
+    return new Date(y, mo - 1, d, h, mi).toISOString();
+  };
   const submitRent = async () => {
     setError('');
     try {
       const res = await axios.post('/api/rentals', {
         deviceId: renting._id,
-        startDate: new Date(form.startDate).toISOString(),
-        endDate: new Date(form.endDate).toISOString(),
+        startDate: toUTC(form.startDate),
+        endDate: toUTC(form.endDate),
       });
       updateBalance(res.data.newBalance);
       setSuccess('Device rented successfully!');
