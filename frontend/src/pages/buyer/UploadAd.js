@@ -1,12 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
-function fmt(date) {
-  // Convert Date to datetime-local value string (YYYY-MM-DDTHH:mm)
-  const d = new Date(date);
-  const pad = n => String(n).padStart(2, '0');
-  return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
-}
+
 
 export default function UploadAd({ onUploaded }) {
   const [rentals, setRentals] = useState([]);
@@ -15,14 +10,20 @@ export default function UploadAd({ onUploaded }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
+  const toLocalInput = (utcDate) => {
+    const d = new Date(utcDate);
+    const offsetMs = d.getTimezoneOffset() * 60000;
+    const local = new Date(d.getTime() - offsetMs);
+    return local.toISOString().slice(0, 16);
+  };
 
   useEffect(() => {
     axios.get('/api/rentals/buyer').then(r => setRentals(r.data.filter(r => r.status === 'active')));
   }, []);
 
   const selectedRental = rentals.find(r => r._id === form.rentalId);
-  const rentalStart = selectedRental ? fmt(selectedRental.startDate) : '';
-  const rentalEnd   = selectedRental ? fmt(selectedRental.endDate)   : '';
+  const rentalMin = selectedRental ? toLocalInput(selectedRental.startDate) : '';
+  const rentalMax = selectedRental ? toLocalInput(selectedRental.endDate)   : '';
 
   // When rental changes, reset times and clamp to rental window
   const handleRentalChange = (e) => {
@@ -30,8 +31,8 @@ export default function UploadAd({ onUploaded }) {
     setForm(f => ({
       ...f,
       rentalId: e.target.value,
-      startTime: rental ? fmt(rental.startDate) : '',
-      endTime:   rental ? fmt(rental.endDate)   : '',
+      startTime: rental ? toLocalInput(rental.startDate) : '',
+      endTime:   rental ? toLocalInput(rental.endDate)   : '',
     }));
   };
 
@@ -113,8 +114,8 @@ export default function UploadAd({ onUploaded }) {
               <input
                 type="datetime-local"
                 value={form.startTime}
-                min={rentalStart}
-                max={rentalEnd}
+                min={rentalMin}
+                max={rentalMax}
                 onChange={e => setForm({...form, startTime: e.target.value})}
                 required
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black"
@@ -125,8 +126,8 @@ export default function UploadAd({ onUploaded }) {
               <input
                 type="datetime-local"
                 value={form.endTime}
-                min={form.startTime || rentalStart}
-                max={rentalEnd}
+                min={form.startTime || rentalMin}
+                max={rentalMax}
                 onChange={e => setForm({...form, endTime: e.target.value})}
                 required
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black"
