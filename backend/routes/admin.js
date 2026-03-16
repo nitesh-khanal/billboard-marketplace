@@ -52,7 +52,7 @@ router.get('/stats', adminAuth, async (req, res) => {
 // Get all users
 router.get('/users', adminAuth, async (req, res) => {
   try {
-    const users = await User.find({ isAdmin: false }).select('-password').sort('-createdAt');
+    const users = await User.find({ isAdmin: { $ne: true } }).select('-password').sort('-createdAt');
     res.json(users);
   } catch (err) { res.status(500).json({ msg: 'Server error' }); }
 });
