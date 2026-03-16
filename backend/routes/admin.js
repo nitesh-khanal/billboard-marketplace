@@ -170,5 +170,58 @@ router.get('/wallet', adminAuth, async (req, res) => {
       });
     } catch (err) { res.status(500).json({ msg: 'Server error' }); }
   });
+  // Admin cancel rental — full refund to buyer, no fee
+router.post('/rentals/:id/cancel', adminAuth, async (req, res) => {
+    try {
+      const Rental = require('../models/Rental');
+      const User = require('../models/User');
+      const Device = require('../models/Device');
+      const Transaction = require('../models/Transaction');
+  
+      const rental = await Rental.findById(req.params.id);
+      if (!rental) return res.status(404).json({ msg: 'Rental not found' });
+      if (rental.status === 'cancelled') return res.status(400).json({ msg: 'Already cancelled' });
+      if (rental.status === 'completed') return res.status(400).json({ msg: 'Already completed' });
+  
+      const now = new Date();
+      const start = new Date(rental.startDate);
+      const end   = new Date(rental.endDate);
+      const totalHours     = (end - start) / 3600000;
+      const usedHours      = Math.max(0, Math.min((now - start) / 3600000, totalHours));
+      const remainingHours = Math.max(0, totalHours - usedHours);
+      const pricePerHour   = rental.totalCost / totalHours;
+      const refundAmount   = parseFloat((remainingHours * pricePerHour).toFixed(2));
+  
+      // Full refund to buyer
+      const buyer = await User.findById(rental.buyer);
+      buyer.walletBalance = parseFloat((buyer.walletBalance + refundAmount).toFixed(2));
+      await buyer.save();
+      await Transaction.create({
+        user: buyer._id,
+        amount: refundAmount,
+        type: 'credit',
+        description: 'Full refund — rental cancelled by admin',
+        balanceAfter: buyer.walletBalance,
+      });
+  
+      // Deduct refund from seller (no penalty, just return buyer's remaining time)
+      const seller = await User.findById(rental.seller);
+      seller.walletBalance = parseFloat((seller.walletBalance - refundAmount).toFixed(2));
+      await seller.save();
+      await Transaction.create({
+        user: seller._id,
+        amount: refundAmount,
+        type: 'debit',
+        description: 'Refund issued — rental cancelled by admin (no penalty)',
+        balanceAfter: seller.walletBalance,
+      });
+  
+      rental.status = 'cancelled';
+      await rental.save();
+      await Device.findByIdAndUpdate(rental.device, { status: 'available' });
+  
+      res.json({ msg: 'Rental cancelled by admin', refundAmount, newBalance: buyer.walletBalance });
+    } catch (err) { console.error(err); res.status(500).json({ msg: 'Server error' }); }
+  });
   
 module.exports = router;
