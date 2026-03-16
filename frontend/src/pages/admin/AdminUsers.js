@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
+const API = process.env.REACT_APP_API_URL || '';
+
 export default function AdminUsers({ token }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const [search, setSearch] = useState('');
 
@@ -11,25 +14,36 @@ export default function AdminUsers({ token }) {
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
 
   useEffect(() => {
-    axios.get('/api/admin/users', { headers }).then(r => setUsers(r.data)).finally(() => setLoading(false));
+    axios.get(API + '/api/admin/users', { headers })
+      .then(r => setUsers(r.data))
+      .catch(err => setError(err.response?.data?.msg || 'Failed to load users: ' + err.message))
+      .finally(() => setLoading(false));
   }, []);
 
   const toggleBan = async (id) => {
-    const res = await axios.put('/api/admin/users/' + id + '/ban', {}, { headers });
-    setUsers(prev => prev.map(u => u._id === id ? { ...u, isBanned: res.data.isBanned } : u));
-    showToast(res.data.msg);
+    try {
+      const res = await axios.put(API + '/api/admin/users/' + id + '/ban', {}, { headers });
+      setUsers(prev => prev.map(u => u._id === id ? { ...u, isBanned: res.data.isBanned } : u));
+      showToast(res.data.msg);
+    } catch (err) { showToast('Failed: ' + (err.response?.data?.msg || err.message)); }
   };
 
   const deleteUser = async (id) => {
     if (!window.confirm('Delete this user permanently?')) return;
-    await axios.delete('/api/admin/users/' + id, { headers });
-    setUsers(prev => prev.filter(u => u._id !== id));
-    showToast('User deleted');
+    try {
+      await axios.delete(API + '/api/admin/users/' + id, { headers });
+      setUsers(prev => prev.filter(u => u._id !== id));
+      showToast('User deleted');
+    } catch (err) { showToast('Failed: ' + (err.response?.data?.msg || err.message)); }
   };
 
-  const filtered = users.filter(u => u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase()));
+  const filtered = users.filter(u =>
+    u.name.toLowerCase().includes(search.toLowerCase()) ||
+    u.email.toLowerCase().includes(search.toLowerCase())
+  );
 
-  if (loading) return <div className="text-sm text-gray-400">Loading...</div>;
+  if (loading) return <div className="text-sm text-gray-400">Loading users...</div>;
+  if (error) return <div className="p-4 bg-red-50 text-red-600 rounded-xl text-sm">{error}</div>;
 
   return (
     <div>
@@ -66,9 +80,7 @@ export default function AdminUsers({ token }) {
                       {u.isBanned ? 'Unban' : 'Ban'}
                     </button>
                     <button onClick={() => deleteUser(u._id)}
-                      className="text-xs px-2 py-1 rounded border border-red-200 text-red-500 hover:bg-red-50 transition-colors">
-                      Delete
-                    </button>
+                      className="text-xs px-2 py-1 rounded border border-red-200 text-red-500 hover:bg-red-50 transition-colors">Delete</button>
                   </div>
                 </td>
               </tr>

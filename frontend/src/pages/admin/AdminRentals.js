@@ -1,23 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
+const API = process.env.REACT_APP_API_URL || '';
+
 export default function AdminRentals({ token }) {
   const [rentals, setRentals] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [filter, setFilter] = useState('all');
   const headers = { Authorization: 'Bearer ' + token };
 
   useEffect(() => {
-    axios.get('/api/admin/rentals', { headers }).then(r => setRentals(r.data)).finally(() => setLoading(false));
+    axios.get(API + '/api/admin/rentals', { headers })
+      .then(r => setRentals(r.data))
+      .catch(err => setError(err.response?.data?.msg || 'Failed to load rentals: ' + err.message))
+      .finally(() => setLoading(false));
   }, []);
 
   const filtered = filter === 'all' ? rentals : rentals.filter(r => r.status === filter);
   const totalRevenue = rentals.reduce((s, r) => s + r.totalCost, 0);
   const totalCommission = rentals.reduce((s, r) => s + (r.commission || 0), 0);
-
   const statusColor = { active: 'bg-green-50 text-green-700', completed: 'bg-blue-50 text-blue-700', cancelled: 'bg-red-50 text-red-600' };
 
-  if (loading) return <div className="text-sm text-gray-400">Loading...</div>;
+  if (loading) return <div className="text-sm text-gray-400">Loading rentals...</div>;
+  if (error) return <div className="p-4 bg-red-50 text-red-600 rounded-xl text-sm">{error}</div>;
 
   return (
     <div>

@@ -1,14 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
+const API = process.env.REACT_APP_API_URL || '';
+
 export default function AdminTransactions({ token }) {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const headers = { Authorization: 'Bearer ' + token };
 
   useEffect(() => {
-    axios.get('/api/admin/transactions', { headers }).then(r => setTransactions(r.data)).finally(() => setLoading(false));
+    axios.get(API + '/api/admin/transactions', { headers })
+      .then(r => setTransactions(r.data))
+      .catch(err => setError(err.response?.data?.msg || 'Failed to load transactions: ' + err.message))
+      .finally(() => setLoading(false));
   }, []);
 
   const filtered = transactions.filter(t =>
@@ -16,7 +22,8 @@ export default function AdminTransactions({ token }) {
     (t.description || '').toLowerCase().includes(search.toLowerCase())
   );
 
-  if (loading) return <div className="text-sm text-gray-400">Loading...</div>;
+  if (loading) return <div className="text-sm text-gray-400">Loading transactions...</div>;
+  if (error) return <div className="p-4 bg-red-50 text-red-600 rounded-xl text-sm">{error}</div>;
 
   return (
     <div>

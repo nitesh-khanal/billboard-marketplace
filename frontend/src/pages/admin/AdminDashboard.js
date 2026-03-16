@@ -15,24 +15,29 @@ const tabs = [
   { id: 'transactions', label: 'Transactions' },
 ];
 
+const API = process.env.REACT_APP_API_URL || '';
+
 export default function AdminDashboard() {
   const [tab, setTab] = useState('overview');
   const [stats, setStats] = useState(null);
+  const [error, setError] = useState('');
   const [commission, setCommission] = useState('');
   const [commMsg, setCommMsg] = useState('');
   const { admin, logout } = useAdmin();
   const navigate = useNavigate();
 
   const token = localStorage.getItem('adminToken');
+  const headers = { Authorization: 'Bearer ' + token };
 
   useEffect(() => {
-    axios.get('/api/admin/stats', { headers: { Authorization: 'Bearer ' + token } })
-      .then(r => { setStats(r.data); setCommission((r.data.commissionRate * 100).toFixed(0)); });
+    axios.get(API + '/api/admin/stats', { headers })
+      .then(r => { setStats(r.data); setCommission((r.data.commissionRate * 100).toFixed(0)); })
+      .catch(err => setError(err.response?.data?.msg || 'Failed to load stats: ' + err.message));
   }, []);
 
   const updateCommission = async () => {
     try {
-      await axios.put('/api/admin/commission', { rate: parseFloat(commission) / 100 }, { headers: { Authorization: 'Bearer ' + token } });
+      await axios.put(API + '/api/admin/commission', { rate: parseFloat(commission) / 100 }, { headers });
       setCommMsg('Commission updated!');
       setTimeout(() => setCommMsg(''), 3000);
     } catch (err) { setCommMsg('Failed to update'); }
@@ -41,19 +46,18 @@ export default function AdminDashboard() {
   const handleLogout = () => { logout(); navigate('/admin'); };
 
   const statCards = stats ? [
-    { label: 'Total Users', value: stats.totalUsers, color: 'bg-blue-50 text-blue-700' },
-    { label: 'Total Devices', value: stats.totalDevices, color: 'bg-purple-50 text-purple-700' },
-    { label: 'Total Rentals', value: stats.totalRentals, color: 'bg-amber-50 text-amber-700' },
-    { label: 'Active Rentals', value: stats.activeRentals, color: 'bg-green-50 text-green-700' },
-    { label: 'Total Ads', value: stats.totalAds, color: 'bg-pink-50 text-pink-700' },
-    { label: 'Platform Revenue', value: '$' + (stats.totalRevenue || 0).toFixed(2), color: 'bg-gray-50 text-gray-700' },
-    { label: 'Commission Earned', value: '$' + (stats.totalCommission || 0).toFixed(2), color: 'bg-green-50 text-green-700' },
-    { label: 'Penalties Collected', value: '$' + (stats.totalPenalties || 0).toFixed(2), color: 'bg-red-50 text-red-700' },
+    { label: 'Total Users', value: stats.totalUsers, color: 'text-blue-700' },
+    { label: 'Total Devices', value: stats.totalDevices, color: 'text-purple-700' },
+    { label: 'Total Rentals', value: stats.totalRentals, color: 'text-amber-700' },
+    { label: 'Active Rentals', value: stats.activeRentals, color: 'text-green-700' },
+    { label: 'Total Ads', value: stats.totalAds, color: 'text-pink-700' },
+    { label: 'Platform Revenue', value: '$' + (stats.totalRevenue || 0).toFixed(2), color: 'text-gray-700' },
+    { label: 'Commission Earned', value: '$' + (stats.totalCommission || 0).toFixed(2), color: 'text-green-700' },
+    { label: 'Penalties Collected', value: '$' + (stats.totalPenalties || 0).toFixed(2), color: 'text-red-700' },
   ] : [];
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navbar */}
       <nav className="bg-gray-950 text-white px-6 py-4 flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center">
@@ -70,7 +74,6 @@ export default function AdminDashboard() {
       </nav>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Tabs */}
         <div className="flex space-x-1 bg-white border border-gray-100 p-1 rounded-xl mb-6 w-fit shadow-sm">
           {tabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
@@ -80,22 +83,21 @@ export default function AdminDashboard() {
           ))}
         </div>
 
-        {/* Overview */}
         {tab === 'overview' && (
           <div>
+            {error && <div className="mb-4 p-4 bg-red-50 text-red-600 rounded-xl text-sm">{error}</div>}
+            {!stats && !error && <div className="text-sm text-gray-400">Loading stats...</div>}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
               {statCards.map(s => (
                 <div key={s.label} className="bg-white rounded-2xl border border-gray-100 p-5">
                   <p className="text-sm text-gray-500">{s.label}</p>
-                  <p className={"text-2xl font-bold mt-1 " + s.color.split(' ')[1]}>{s.value}</p>
+                  <p className={"text-2xl font-bold mt-1 " + s.color}>{s.value}</p>
                 </div>
               ))}
             </div>
-
-            {/* Commission Rate Control */}
             <div className="bg-white rounded-2xl border border-gray-100 p-6 max-w-md">
               <h3 className="font-semibold text-gray-900 mb-1">Commission Rate</h3>
-              <p className="text-sm text-gray-500 mb-4">Applied to every rental. Currently <strong>{stats?.commissionRate * 100}%</strong></p>
+              <p className="text-sm text-gray-500 mb-4">Applied to every rental. Currently <strong>{stats ? stats.commissionRate * 100 : 5}%</strong></p>
               {commMsg && <div className="mb-3 p-2 bg-green-50 text-green-600 rounded-lg text-sm">{commMsg}</div>}
               <div className="flex space-x-3">
                 <div className="relative flex-1">

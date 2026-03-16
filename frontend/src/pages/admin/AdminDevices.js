@@ -1,27 +1,36 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
+const API = process.env.REACT_APP_API_URL || '';
+
 export default function AdminDevices({ token }) {
   const [devices, setDevices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const headers = { Authorization: 'Bearer ' + token };
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
 
   useEffect(() => {
-    axios.get('/api/admin/devices', { headers }).then(r => setDevices(r.data)).finally(() => setLoading(false));
+    axios.get(API + '/api/admin/devices', { headers })
+      .then(r => setDevices(r.data))
+      .catch(err => setError(err.response?.data?.msg || 'Failed to load devices: ' + err.message))
+      .finally(() => setLoading(false));
   }, []);
 
   const deleteDevice = async (id) => {
     if (!window.confirm('Delete this device?')) return;
-    await axios.delete('/api/admin/devices/' + id, { headers });
-    setDevices(prev => prev.filter(d => d._id !== id));
-    showToast('Device deleted');
+    try {
+      await axios.delete(API + '/api/admin/devices/' + id, { headers });
+      setDevices(prev => prev.filter(d => d._id !== id));
+      showToast('Device deleted');
+    } catch (err) { showToast('Failed: ' + (err.response?.data?.msg || err.message)); }
   };
 
   const statusColor = { available: 'bg-green-50 text-green-700', rented: 'bg-yellow-50 text-yellow-700', offline: 'bg-gray-50 text-gray-600' };
 
-  if (loading) return <div className="text-sm text-gray-400">Loading...</div>;
+  if (loading) return <div className="text-sm text-gray-400">Loading devices...</div>;
+  if (error) return <div className="p-4 bg-red-50 text-red-600 rounded-xl text-sm">{error}</div>;
 
   return (
     <div>
