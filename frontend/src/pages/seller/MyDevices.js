@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import DeviceScriptModal from '../../components/DeviceScriptModal';
 
 const statusColor = {
   available: 'bg-green-50 text-green-700',
@@ -14,6 +15,7 @@ export default function MyDevices() {
   const [confirmId, setConfirmId] = useState(null);
   const [removing, setRemoving] = useState(false);
   const [toast, setToast] = useState('');
+  const [scriptDevice, setScriptDevice] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -52,14 +54,14 @@ export default function MyDevices() {
 
   return (
     <div>
-      {/* Toast */}
       {toast && (
         <div className="fixed top-4 right-4 z-50 bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm shadow-lg max-w-sm">
           {toast}
         </div>
       )}
 
-      {/* Confirm Remove Modal */}
+      {scriptDevice && <DeviceScriptModal device={scriptDevice} onClose={() => setScriptDevice(null)} />}
+
       {confirmId && confirmingDevice && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
@@ -70,20 +72,18 @@ export default function MyDevices() {
             </div>
             <h3 className="font-semibold text-gray-900 mb-1">Remove this device?</h3>
             <p className="text-sm font-medium text-gray-700 mb-3">"{confirmingDevice.deviceName}"</p>
-
             {confirmingDevice.status === 'rented' ? (
               <div className="bg-red-50 rounded-xl p-4 mb-5 text-sm space-y-1">
-                <p className="font-medium text-red-700">⚠️ This device has an active rental!</p>
-                <p className="text-red-600">The buyer will receive a <strong>full refund</strong> of their remaining time.</p>
-                <p className="text-red-600">You will be charged the refund amount <strong>plus a 25% penalty</strong> on the remaining time.</p>
-                <p className="text-red-600">You keep the payment for time already used.</p>
+                <p className="font-medium text-red-700">This device has an active rental!</p>
+                <p className="text-red-600">The buyer will receive a full refund of remaining time.</p>
+                <p className="text-red-600">You will be charged the refund + 10% penalty.</p>
+                <p className="text-red-600">You keep payment for time already used.</p>
               </div>
             ) : (
               <div className="bg-gray-50 rounded-xl p-4 mb-5 text-sm text-gray-600">
-                This device has no active rentals. It will be permanently removed with no penalty.
+                No active rentals. Removed with no penalty.
               </div>
             )}
-
             <div className="flex space-x-3">
               <button onClick={() => setConfirmId(null)} disabled={removing}
                 className="flex-1 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">
@@ -116,13 +116,17 @@ export default function MyDevices() {
               <p className="text-xs text-gray-400">ID: {d.deviceId}</p>
               <p className="text-xs text-gray-400">{d.availabilitySchedule}</p>
             </div>
-            <div className="flex space-x-2">
+            <div className="grid grid-cols-3 gap-1.5">
               <button onClick={() => navigate('/playback/' + d._id)}
-                className="flex-1 text-xs text-center py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-gray-600">
-                View Playback
+                className="text-xs text-center py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-gray-600">
+                Playback
+              </button>
+              <button onClick={() => setScriptDevice(d)}
+                className="text-xs text-center py-2 border border-blue-200 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors">
+                Get Script
               </button>
               <button onClick={() => setConfirmId(d._id)}
-                className="flex-1 text-xs text-center py-2 border border-red-200 text-red-500 rounded-lg hover:bg-red-50 transition-colors">
+                className="text-xs text-center py-2 border border-red-200 text-red-500 rounded-lg hover:bg-red-50 transition-colors">
                 Remove
               </button>
             </div>
