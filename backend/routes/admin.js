@@ -126,5 +126,29 @@ router.put('/commission', adminAuth, async (req, res) => {
     res.json({ commissionRate: platform.commissionRate });
   } catch (err) { res.status(500).json({ msg: 'Server error' }); }
 });
-
+// Get all ads
+router.get('/ads', adminAuth, async (req, res) => {
+    try {
+      const ads = await require('../models/Ad').find()
+        .populate('device', 'deviceName location')
+        .populate('uploadedBy', 'name email')
+        .sort('-createdAt');
+      res.json(ads);
+    } catch (err) { res.status(500).json({ msg: 'Server error' }); }
+  });
+  
+  // Delete ad (admin)
+  router.delete('/ads/:id', adminAuth, async (req, res) => {
+    try {
+      const Ad = require('../models/Ad');
+      const fs = require('fs');
+      const path = require('path');
+      const ad = await Ad.findById(req.params.id);
+      if (!ad) return res.status(404).json({ msg: 'Ad not found' });
+      const filePath = path.join(__dirname, '..', ad.fileUrl);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      await ad.deleteOne();
+      res.json({ msg: 'Ad deleted' });
+    } catch (err) { res.status(500).json({ msg: 'Server error' }); }
+  });
 module.exports = router;

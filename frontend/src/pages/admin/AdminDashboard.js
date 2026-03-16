@@ -6,14 +6,16 @@ import AdminUsers from './AdminUsers';
 import AdminDevices from './AdminDevices';
 import AdminRentals from './AdminRentals';
 import AdminTransactions from './AdminTransactions';
+import AdminAds from './AdminAds';
 
 const tabs = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'users', label: 'Users' },
-  { id: 'devices', label: 'Devices' },
-  { id: 'rentals', label: 'Rentals' },
-  { id: 'transactions', label: 'Transactions' },
-];
+    { id: 'overview', label: 'Overview' },
+    { id: 'users', label: 'Users' },
+    { id: 'devices', label: 'Devices' },
+    { id: 'rentals', label: 'Rentals' },
+    { id: 'ads', label: 'Ads' },
+    { id: 'transactions', label: 'Transactions' },
+  ];
 
 const API = process.env.REACT_APP_API_URL || '';
 
@@ -119,6 +121,7 @@ export default function AdminDashboard() {
         {tab === 'devices'      && <AdminDevices token={token} />}
         {tab === 'rentals'      && <AdminRentals token={token} />}
         {tab === 'transactions' && <AdminTransactions token={token} />}
+        {tab === 'ads' && <AdminAds token={token} />}
       </div>
     </div>
   );
