@@ -30,7 +30,7 @@ router.get('/stats', adminAuth, async (req, res) => {
   try {
     const platform = await getPlatform();
     const [totalUsers, totalDevices, totalRentals, activeRentals, totalAds] = await Promise.all([
-      User.countDocuments({ isAdmin: false }),
+        User.countDocuments({ isAdmin: { $ne: true } }),
       Device.countDocuments(),
       Rental.countDocuments(),
       Rental.countDocuments({ status: 'active' }),
