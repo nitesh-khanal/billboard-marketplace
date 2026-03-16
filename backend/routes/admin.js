@@ -151,4 +151,24 @@ router.get('/ads', adminAuth, async (req, res) => {
       res.json({ msg: 'Ad deleted' });
     } catch (err) { res.status(500).json({ msg: 'Server error' }); }
   });
+  // Admin wallet / earnings overview
+router.get('/wallet', adminAuth, async (req, res) => {
+    try {
+      const platform = await getPlatform();
+      const recentCommissions = await Rental.find({ commission: { $gt: 0 } })
+        .populate('device', 'deviceName')
+        .populate('buyer', 'name')
+        .sort('-createdAt')
+        .limit(50)
+        .select('totalCost commission createdAt device buyer');
+      res.json({
+        totalCommission: platform.totalCommission,
+        totalPenalties: platform.totalPenalties,
+        totalEarnings: parseFloat((platform.totalCommission + platform.totalPenalties).toFixed(2)),
+        commissionRate: platform.commissionRate,
+        recentCommissions,
+      });
+    } catch (err) { res.status(500).json({ msg: 'Server error' }); }
+  });
+  
 module.exports = router;

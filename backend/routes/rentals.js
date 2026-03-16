@@ -31,16 +31,13 @@ router.post('/', auth, async (req, res) => {
     const buyer = await User.findById(req.user.id);
     if (buyer.walletBalance < totalCost) return res.status(400).json({ msg: 'Insufficient balance. Need $' + totalCost });
 
-    // Debit buyer full amount
     buyer.walletBalance = parseFloat((buyer.walletBalance - totalCost).toFixed(2));
     await buyer.save();
 
-    // Credit seller minus commission
     const seller = await User.findById(device.owner);
     seller.walletBalance = parseFloat((seller.walletBalance + sellerEarns).toFixed(2));
     await seller.save();
 
-    // Update platform stats
     platform.totalCommission = parseFloat((platform.totalCommission + commission).toFixed(2));
     platform.totalRevenue = parseFloat((platform.totalRevenue + totalCost).toFixed(2));
     await platform.save();
@@ -80,34 +77,39 @@ router.post('/:id/cancel', auth, async (req, res) => {
     if (rental.status === 'completed') return res.status(400).json({ msg: 'Already completed' });
 
     const now = new Date();
-    const start = new Date(rental.startDate); const end = new Date(rental.endDate);
+    const start = new Date(rental.startDate);
+    const end = new Date(rental.endDate);
     const totalHours = (end - start) / 3600000;
     const usedHours = Math.max(0, Math.min((now - start) / 3600000, totalHours));
     const remainingHours = Math.max(0, totalHours - usedHours);
     const pricePerHour = rental.totalCost / totalHours;
     const remainingCost = parseFloat((remainingHours * pricePerHour).toFixed(2));
-    const refundAmount = parseFloat((remainingCost * 0.75).toFixed(2));
-    const sellerKeeps = parseFloat((remainingCost * 0.25).toFixed(2));
+    const refundAmount  = parseFloat((remainingCost * 0.90).toFixed(2));
+    const cancellationFee = parseFloat((remainingCost * 0.10).toFixed(2));
 
+    // Refund 90% of remaining to buyer
     const buyer = await User.findById(req.user.id);
     buyer.walletBalance = parseFloat((buyer.walletBalance + refundAmount).toFixed(2));
     await buyer.save();
 
+    // Deduct refund from seller
     const seller = await User.findById(rental.seller);
     seller.walletBalance = parseFloat((seller.walletBalance - refundAmount).toFixed(2));
     await seller.save();
 
+    // 10% cancellation fee goes to platform
     const platform = await getPlatform();
-    platform.totalPenalties = parseFloat((platform.totalPenalties + sellerKeeps).toFixed(2));
+    platform.totalPenalties = parseFloat((platform.totalPenalties + cancellationFee).toFixed(2));
     await platform.save();
 
-    await Transaction.create({ user: buyer._id, amount: refundAmount, type: 'credit', description: 'Cancellation refund (75% of unused time)', balanceAfter: buyer.walletBalance });
-    await Transaction.create({ user: seller._id, amount: refundAmount, type: 'debit', description: 'Refund issued for cancellation', balanceAfter: seller.walletBalance });
+    await Transaction.create({ user: buyer._id, amount: refundAmount, type: 'credit', description: 'Cancellation refund (90% of unused time)', balanceAfter: buyer.walletBalance });
+    await Transaction.create({ user: seller._id, amount: refundAmount, type: 'debit', description: 'Refund issued for cancellation (10% kept as fee)', balanceAfter: seller.walletBalance });
 
-    rental.status = 'cancelled'; await rental.save();
+    rental.status = 'cancelled';
+    await rental.save();
     await Device.findByIdAndUpdate(rental.device, { status: 'available' });
 
-    res.json({ msg: 'Rental cancelled', refundAmount, newBalance: buyer.walletBalance });
+    res.json({ msg: 'Rental cancelled', refundAmount, cancellationFee, newBalance: buyer.walletBalance });
   } catch (err) { console.error(err); res.status(500).json({ msg: 'Server error' }); }
 });
 

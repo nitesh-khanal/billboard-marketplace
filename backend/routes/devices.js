@@ -4,6 +4,7 @@ const Device = require('../models/Device');
 const Rental = require('../models/Rental');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
+const Platform = require('../models/Platform');
 
 router.post('/', auth, async (req, res) => {
   try {
@@ -64,7 +65,7 @@ router.delete('/:id', auth, async (req, res) => {
       // Seller already received full payment — refund comes from their wallet
       const refund  = parseFloat((remainHours * pricePerHour).toFixed(2));
       // 25% penalty on remaining time only
-      const penalty = parseFloat((refund * 0.25).toFixed(2));
+      const penalty = parseFloat((refund * 0.10).toFixed(2));
 
       // Full refund of remaining time to buyer
       const buyer = await User.findById(rental.buyer);
@@ -91,9 +92,14 @@ router.delete('/:id', auth, async (req, res) => {
         balanceAfter: seller.walletBalance,
       });
 
-      totalPenalty += penalty;
-      rental.status = 'cancelled';
-      await rental.save();
+     // Add penalty to platform wallet
+const platform = await Platform.findOne() || await Platform.create({});
+platform.totalPenalties = parseFloat((platform.totalPenalties + penalty).toFixed(2));
+await platform.save();
+
+totalPenalty += penalty;
+rental.status = 'cancelled';
+await rental.save();
     }
 
     await device.deleteOne();
