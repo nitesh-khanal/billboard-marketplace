@@ -11,7 +11,8 @@ export function AdminProvider({ children }) {
   });
 
   const login = async (email, password) => {
-    const res = await axios.post('/api/admin/login', { email, password });
+    const API = process.env.REACT_APP_API_URL || '';
+const res = await axios.post(API + '/api/admin/login', { email, password });
     localStorage.setItem('adminToken', res.data.token);
     axios.defaults.headers.common['Authorization'] = 'Bearer ' + res.data.token;
     setAdmin(res.data.admin);
