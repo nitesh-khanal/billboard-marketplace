@@ -6,6 +6,8 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   currentRole: { type: String, enum: ['seller', 'buyer'], default: 'buyer' },
   walletBalance: { type: Number, default: 0 },
+  isAdmin: { type: Boolean, default: false },
+  isBanned: { type: Boolean, default: false },
 }, { timestamps: true });
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();

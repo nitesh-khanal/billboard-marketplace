@@ -10,38 +10,17 @@ const connectDB = require('./config/db');
 const app = express();
 const server = http.createServer(app);
 
-const allowedOrigins = (process.env.CLIENT_URL || '')
-  .split(',')
-  .map(s => s.trim())
-  .concat(['http://localhost:3000']);
-
-const corsOptions = {
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-};
+const allowedOrigins = process.env.CLIENT_URL
+  ? [process.env.CLIENT_URL, 'http://localhost:3000']
+  : ['http://localhost:3000'];
 
 const io = socketIo(server, {
-  cors: {
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
-    methods: ['GET', 'POST'],
-  },
+  cors: { origin: allowedOrigins, methods: ['GET', 'POST'] },
 });
 
 connectDB();
 
-app.use(cors(corsOptions));
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -52,6 +31,7 @@ app.use('/api/devices', require('./routes/devices'));
 app.use('/api/rentals', require('./routes/rentals'));
 app.use('/api/ads',     require('./routes/ads'));
 app.use('/api/wallet',  require('./routes/wallet'));
+app.use('/api/admin',   require('./routes/admin'));
 
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok' }));

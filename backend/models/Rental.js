@@ -6,6 +6,7 @@ const rentalSchema = new mongoose.Schema({
   startDate: { type: Date, required: true },
   endDate: { type: Date, required: true },
   totalCost: { type: Number, required: true },
+  commission: { type: Number, default: 0 },
   status: { type: String, enum: ['active', 'completed', 'cancelled'], default: 'active' },
 }, { timestamps: true });
 module.exports = mongoose.model('Rental', rentalSchema);
