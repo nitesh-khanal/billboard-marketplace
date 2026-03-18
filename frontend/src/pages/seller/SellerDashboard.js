@@ -29,7 +29,8 @@ export default function SellerDashboard() {
           if (r.status !== 'active') return false;
           const start = new Date(r.startDate);
           const diff = (start - now) / 1000;
-          return diff <= 120 && diff > -60;
+          const end = new Date(r.endDate);
+return (diff <= 120 && diff > -3600) && end > now;
         });
 
         if (upcoming.length > 0) {
@@ -103,7 +104,9 @@ export default function SellerDashboard() {
         <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between">
           <div>
             <p className="font-medium text-amber-800">Rental starting soon — {countdown.deviceName}</p>
-            <p className="text-sm text-amber-600 mt-0.5">Display will open automatically in {fmt(countdown.secondsLeft)}</p>
+            <p className="text-sm text-amber-600 mt-0.5">
+  {countdown.secondsLeft <= 0 ? 'Rental is live now! Display should be open.' : 'Display will open automatically in ' + fmt(countdown.secondsLeft)}
+</p>
           </div>
           <div className="flex items-center space-x-3">
             <div className="text-2xl font-bold text-amber-700 font-mono">{fmt(countdown.secondsLeft)}</div>
