@@ -28,6 +28,7 @@ export default function AdminRentals({ token }) {
       showToast('Rental cancelled. Full refund issued to buyer.');
     } catch (err) { showToast('Failed: ' + (err.response?.data?.msg || err.message)); }
   };
+
   const deleteRental = async (id) => {
     if (!window.confirm('Permanently delete this rental record?')) return;
     try {
@@ -77,7 +78,7 @@ export default function AdminRentals({ token }) {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-100">
             <tr>
-              {['Device','Buyer','Seller','Start','End','Amount','Commission','Status','Action'].map(h => (
+              {['Device','Buyer','Seller','Start','End','Amount','Commission','Status','Actions'].map(h => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{h}</th>
               ))}
             </tr>
@@ -98,19 +99,19 @@ export default function AdminRentals({ token }) {
                   </span>
                 </td>
                 <td className="px-4 py-3">
-  <div className="flex space-x-2">
-    {r.status === 'active' && (
-      <button onClick={() => cancelRental(r._id)}
-        className="text-xs px-2 py-1 rounded border border-yellow-200 text-yellow-600 hover:bg-yellow-50 transition-colors">
-        Cancel
-      </button>
-    )}
-    <button onClick={() => deleteRental(r._id)}
-      className="text-xs px-2 py-1 rounded border border-red-200 text-red-500 hover:bg-red-50 transition-colors">
-      Delete
-    </button>
-  </div>
-</td>
+                  <div className="flex space-x-2">
+                    {r.status === 'active' && (
+                      <button onClick={() => cancelRental(r._id)}
+                        className="text-xs px-2 py-1 rounded border border-yellow-200 text-yellow-600 hover:bg-yellow-50 transition-colors">
+                        Cancel
+                      </button>
+                    )}
+                    <button onClick={() => deleteRental(r._id)}
+                      className="text-xs px-2 py-1 rounded border border-red-200 text-red-500 hover:bg-red-50 transition-colors">
+                      Delete
+                    </button>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
