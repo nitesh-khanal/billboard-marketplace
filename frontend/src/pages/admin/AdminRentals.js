@@ -28,6 +28,14 @@ export default function AdminRentals({ token }) {
       showToast('Rental cancelled. Full refund issued to buyer.');
     } catch (err) { showToast('Failed: ' + (err.response?.data?.msg || err.message)); }
   };
+  const deleteRental = async (id) => {
+    if (!window.confirm('Permanently delete this rental record?')) return;
+    try {
+      await axios.delete(API + '/api/admin/rentals/' + id, { headers });
+      setRentals(prev => prev.filter(r => r._id !== id));
+      showToast('Rental deleted');
+    } catch (err) { showToast('Failed: ' + (err.response?.data?.msg || err.message)); }
+  };
 
   const filtered = filter === 'all' ? rentals : rentals.filter(r => r.status === filter);
   const totalRevenue = rentals.reduce((s, r) => s + r.totalCost, 0);
@@ -90,13 +98,19 @@ export default function AdminRentals({ token }) {
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  {r.status === 'active' && (
-                    <button onClick={() => cancelRental(r._id)}
-                      className="text-xs px-2 py-1 rounded border border-red-200 text-red-500 hover:bg-red-50 transition-colors">
-                      Cancel
-                    </button>
-                  )}
-                </td>
+  <div className="flex space-x-2">
+    {r.status === 'active' && (
+      <button onClick={() => cancelRental(r._id)}
+        className="text-xs px-2 py-1 rounded border border-yellow-200 text-yellow-600 hover:bg-yellow-50 transition-colors">
+        Cancel
+      </button>
+    )}
+    <button onClick={() => deleteRental(r._id)}
+      className="text-xs px-2 py-1 rounded border border-red-200 text-red-500 hover:bg-red-50 transition-colors">
+      Delete
+    </button>
+  </div>
+</td>
               </tr>
             ))}
           </tbody>

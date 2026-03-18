@@ -223,5 +223,13 @@ router.post('/rentals/:id/cancel', adminAuth, async (req, res) => {
       res.json({ msg: 'Rental cancelled by admin', refundAmount, newBalance: buyer.walletBalance });
     } catch (err) { console.error(err); res.status(500).json({ msg: 'Server error' }); }
   });
-  
+
+  // Admin delete rental
+router.delete('/rentals/:id', adminAuth, async (req, res) => {
+    try {
+      const Rental = require('../models/Rental');
+      await Rental.findByIdAndDelete(req.params.id);
+      res.json({ msg: 'Rental deleted' });
+    } catch (err) { res.status(500).json({ msg: 'Server error' }); }
+  });
 module.exports = router;
