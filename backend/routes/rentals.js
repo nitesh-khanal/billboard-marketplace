@@ -1,121 +1,113 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+const router = require('express').Router();
+const auth = require('../middleware/auth');
+const Rental = require('../models/Rental');
+const Device = require('../models/Device');
+const User = require('../models/User');
+const Transaction = require('../models/Transaction');
+const Platform = require('../models/Platform');
 
-const API = process.env.REACT_APP_API_URL || '';
+const getPlatform = async () => {
+  let p = await Platform.findOne();
+  if (!p) p = await Platform.create({});
+  return p;
+};
 
-export default function AdminRentals({ token }) {
-  const [rentals, setRentals] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [filter, setFilter] = useState('all');
-  const [toast, setToast] = useState('');
-  const headers = { Authorization: 'Bearer ' + token };
+router.post('/', auth, async (req, res) => {
+  try {
+    const { deviceId, startDate, endDate } = req.body;
+    if (!deviceId || !startDate || !endDate) return res.status(400).json({ msg: 'All fields required' });
+    const device = await Device.findById(deviceId);
+    if (!device) return res.status(404).json({ msg: 'Device not found' });
+    if (device.status !== 'available') return res.status(400).json({ msg: 'Device is not available' });
+    const start = new Date(startDate); const end = new Date(endDate);
+    if (end <= start) return res.status(400).json({ msg: 'End must be after start' });
 
-  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
+    const platform = await getPlatform();
+    const hours = (end - start) / 3600000;
+    const totalCost = parseFloat((hours * device.pricePerHour).toFixed(2));
+    const commission = parseFloat((totalCost * platform.commissionRate).toFixed(2));
+    const sellerEarns = parseFloat((totalCost - commission).toFixed(2));
 
-  useEffect(() => {
-    axios.get(API + '/api/admin/rentals', { headers })
-      .then(r => setRentals(r.data))
-      .catch(err => setError(err.response?.data?.msg || 'Failed to load rentals: ' + err.message))
-      .finally(() => setLoading(false));
-  }, []);
+    const buyer = await User.findById(req.user.id);
+    if (buyer.walletBalance < totalCost) return res.status(400).json({ msg: 'Insufficient balance. Need $' + totalCost });
 
-  const cancelRental = async (id) => {
-    if (!window.confirm('Cancel this rental? Buyer gets full refund, no fee.')) return;
-    try {
-      await axios.post(API + '/api/admin/rentals/' + id + '/cancel', {}, { headers });
-      setRentals(prev => prev.map(r => r._id === id ? { ...r, status: 'cancelled' } : r));
-      showToast('Rental cancelled. Full refund issued to buyer.');
-    } catch (err) { showToast('Failed: ' + (err.response?.data?.msg || err.message)); }
-  };
+    buyer.walletBalance = parseFloat((buyer.walletBalance - totalCost).toFixed(2));
+    await buyer.save();
 
-  const deleteRental = async (id) => {
-    if (!window.confirm('Permanently delete this rental record?')) return;
-    try {
-      await axios.delete(API + '/api/admin/rentals/' + id, { headers });
-      setRentals(prev => prev.filter(r => r._id !== id));
-      showToast('Rental deleted');
-    } catch (err) { showToast('Failed: ' + (err.response?.data?.msg || err.message)); }
-  };
+    const seller = await User.findById(device.owner);
+    seller.walletBalance = parseFloat((seller.walletBalance + sellerEarns).toFixed(2));
+    await seller.save();
 
-  const filtered = filter === 'all' ? rentals : rentals.filter(r => r.status === filter);
-  const totalRevenue = rentals.reduce((s, r) => s + r.totalCost, 0);
-  const totalCommission = rentals.reduce((s, r) => s + (r.commission || 0), 0);
-  const statusColor = {
-    active: 'bg-green-50 text-green-700',
-    completed: 'bg-blue-50 text-blue-700',
-    cancelled: 'bg-red-50 text-red-600'
-  };
+    platform.totalCommission = parseFloat((platform.totalCommission + commission).toFixed(2));
+    platform.totalRevenue = parseFloat((platform.totalRevenue + totalCost).toFixed(2));
+    await platform.save();
 
-  if (loading) return <div className="text-sm text-gray-400">Loading rentals...</div>;
-  if (error) return <div className="p-4 bg-red-50 text-red-600 rounded-xl text-sm">{error}</div>;
+    await Transaction.create({ user: buyer._id, amount: totalCost, type: 'debit', description: 'Rented ' + device.deviceName, balanceAfter: buyer.walletBalance });
+    await Transaction.create({ user: seller._id, amount: sellerEarns, type: 'credit', description: device.deviceName + ' rented by ' + buyer.name + ' (after 5% commission)', balanceAfter: seller.walletBalance });
 
-  return (
-    <div>
-      {toast && <div className="fixed top-4 right-4 z-50 bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm shadow-lg">{toast}</div>}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex space-x-3">
-          <div className="bg-green-50 rounded-xl px-4 py-2">
-            <p className="text-xs text-green-600">Total Revenue</p>
-            <p className="font-bold text-green-700">${totalRevenue.toFixed(2)}</p>
-          </div>
-          <div className="bg-blue-50 rounded-xl px-4 py-2">
-            <p className="text-xs text-blue-600">Commission (5%)</p>
-            <p className="font-bold text-blue-700">${totalCommission.toFixed(2)}</p>
-          </div>
-        </div>
-        <select value={filter} onChange={e => setFilter(e.target.value)}
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none">
-          <option value="all">All</option>
-          <option value="active">Active</option>
-          <option value="completed">Completed</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
-      </div>
-      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-100">
-            <tr>
-              {['Device','Buyer','Seller','Start','End','Amount','Commission','Status','Actions'].map(h => (
-                <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {filtered.map(r => (
-              <tr key={r._id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium text-gray-900">{r.device?.deviceName}</td>
-                <td className="px-4 py-3 text-gray-500">{r.buyer?.name}</td>
-                <td className="px-4 py-3 text-gray-500">{r.seller?.name}</td>
-                <td className="px-4 py-3 text-gray-400 text-xs">{new Date(r.startDate).toLocaleString()}</td>
-                <td className="px-4 py-3 text-gray-400 text-xs">{new Date(r.endDate).toLocaleString()}</td>
-                <td className="px-4 py-3 font-medium text-gray-900">${r.totalCost.toFixed(2)}</td>
-                <td className="px-4 py-3 text-green-600">${(r.commission || 0).toFixed(2)}</td>
-                <td className="px-4 py-3">
-                  <span className={"inline-flex px-2 py-0.5 rounded-full text-xs font-medium " + (statusColor[r.status] || '')}>
-                    {r.status}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex space-x-2">
-                    {r.status === 'active' && (
-                      <button onClick={() => cancelRental(r._id)}
-                        className="text-xs px-2 py-1 rounded border border-yellow-200 text-yellow-600 hover:bg-yellow-50 transition-colors">
-                        Cancel
-                      </button>
-                    )}
-                    <button onClick={() => deleteRental(r._id)}
-                      className="text-xs px-2 py-1 rounded border border-red-200 text-red-500 hover:bg-red-50 transition-colors">
-                      Delete
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {!filtered.length && <div className="py-12 text-center text-sm text-gray-400">No rentals found</div>}
-      </div>
-    </div>
-  );
-}
+    const rental = await Rental.create({ device: deviceId, buyer: buyer._id, seller: seller._id, startDate: start, endDate: end, totalCost, commission });
+    device.status = 'rented'; await device.save();
+    res.status(201).json({ rental, newBalance: buyer.walletBalance });
+  } catch (err) { console.error(err); res.status(500).json({ msg: 'Server error' }); }
+});
+
+router.get('/buyer', auth, async (req, res) => {
+  try {
+    const rentals = await Rental.find({ buyer: req.user.id })
+      .populate('device', 'deviceName location screenSize pricePerHour deviceId')
+      .populate('seller', 'name email').sort('-createdAt');
+    res.json(rentals);
+  } catch (err) { res.status(500).json({ msg: 'Server error' }); }
+});
+
+router.get('/seller', auth, async (req, res) => {
+  try {
+    const rentals = await Rental.find({ seller: req.user.id })
+      .populate('device', 'deviceName location screenSize')
+      .populate('buyer', 'name email').sort('-createdAt');
+    res.json(rentals);
+  } catch (err) { res.status(500).json({ msg: 'Server error' }); }
+});
+
+router.post('/:id/cancel', auth, async (req, res) => {
+  try {
+    const rental = await Rental.findOne({ _id: req.params.id, buyer: req.user.id });
+    if (!rental) return res.status(404).json({ msg: 'Rental not found' });
+    if (rental.status === 'cancelled') return res.status(400).json({ msg: 'Already cancelled' });
+    if (rental.status === 'completed') return res.status(400).json({ msg: 'Already completed' });
+
+    const now = new Date();
+    const start = new Date(rental.startDate);
+    const end = new Date(rental.endDate);
+    const totalHours = (end - start) / 3600000;
+    const usedHours = Math.max(0, Math.min((now - start) / 3600000, totalHours));
+    const remainingHours = Math.max(0, totalHours - usedHours);
+    const pricePerHour = rental.totalCost / totalHours;
+    const remainingCost = parseFloat((remainingHours * pricePerHour).toFixed(2));
+    const refundAmount = parseFloat((remainingCost * 0.90).toFixed(2));
+    const cancellationFee = parseFloat((remainingCost * 0.10).toFixed(2));
+
+    const buyer = await User.findById(req.user.id);
+    buyer.walletBalance = parseFloat((buyer.walletBalance + refundAmount).toFixed(2));
+    await buyer.save();
+
+    const seller = await User.findById(rental.seller);
+    seller.walletBalance = parseFloat((seller.walletBalance - refundAmount).toFixed(2));
+    await seller.save();
+
+    const platform = await getPlatform();
+    platform.totalPenalties = parseFloat((platform.totalPenalties + cancellationFee).toFixed(2));
+    await platform.save();
+
+    await Transaction.create({ user: buyer._id, amount: refundAmount, type: 'credit', description: 'Cancellation refund (90% of unused time)', balanceAfter: buyer.walletBalance });
+    await Transaction.create({ user: seller._id, amount: refundAmount, type: 'debit', description: 'Refund issued for cancellation (10% kept as fee)', balanceAfter: seller.walletBalance });
+
+    rental.status = 'cancelled';
+    await rental.save();
+    await Device.findByIdAndUpdate(rental.device, { status: 'available' });
+
+    res.json({ msg: 'Rental cancelled', refundAmount, cancellationFee, newBalance: buyer.walletBalance });
+  } catch (err) { console.error(err); res.status(500).json({ msg: 'Server error' }); }
+});
+
+module.exports = router;
