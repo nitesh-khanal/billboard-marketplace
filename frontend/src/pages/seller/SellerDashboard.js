@@ -25,12 +25,13 @@ export default function SellerDashboard() {
       try {
         const res = await axios.get('/api/rentals/seller');
         const now = new Date();
+
         const upcoming = res.data.filter(r => {
           if (r.status !== 'active') return false;
           const start = new Date(r.startDate);
-          const diff = (start - now) / 1000;
           const end = new Date(r.endDate);
-return (diff <= 120 && diff > -3600) && end > now;
+          const diff = (start - now) / 1000;
+          return diff <= 120 && diff > -3600 && end > now;
         });
 
         if (upcoming.length > 0) {
@@ -42,6 +43,7 @@ return (diff <= 120 && diff > -3600) && end > now;
 
           if (secondsLeft <= 0) {
             openFullscreen(deviceId, deviceName);
+            setCountdown({ deviceId, deviceName, secondsLeft: 0 });
           } else {
             setCountdown({ deviceId, deviceName, secondsLeft });
           }
@@ -64,7 +66,7 @@ return (diff <= 120 && diff > -3600) && end > now;
       const newSeconds = countdown.secondsLeft - 1;
       if (newSeconds <= 0) {
         openFullscreen(countdown.deviceId, countdown.deviceName);
-        setCountdown(null);
+        setCountdown(prev => ({ ...prev, secondsLeft: 0 }));
       } else {
         setCountdown(prev => ({ ...prev, secondsLeft: newSeconds }));
       }
@@ -73,7 +75,7 @@ return (diff <= 120 && diff > -3600) && end > now;
   }, [countdown]);
 
   const openFullscreen = (deviceId, deviceName) => {
-    const url = window.location.origin + '/playback/' + deviceId;
+    const url = window.location.origin + '/playback/' + deviceId + '?kiosk=true';
     const win = window.open(url, '_blank');
     if (win) {
       win.focus();
@@ -103,16 +105,24 @@ return (diff <= 120 && diff > -3600) && end > now;
       {countdown && (
         <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between">
           <div>
-            <p className="font-medium text-amber-800">Rental starting soon — {countdown.deviceName}</p>
+            <p className="font-medium text-amber-800">
+              {countdown.secondsLeft <= 0 ? 'Rental is live — ' : 'Rental starting soon — '}
+              {countdown.deviceName}
+            </p>
             <p className="text-sm text-amber-600 mt-0.5">
-  {countdown.secondsLeft <= 0 ? 'Rental is live now! Display should be open.' : 'Display will open automatically in ' + fmt(countdown.secondsLeft)}
-</p>
+              {countdown.secondsLeft <= 0
+                ? 'Display window is open. Ads will show automatically.'
+                : 'Display will open automatically in ' + fmt(countdown.secondsLeft)}
+            </p>
           </div>
           <div className="flex items-center space-x-3">
-            <div className="text-2xl font-bold text-amber-700 font-mono">{fmt(countdown.secondsLeft)}</div>
-            <button onClick={() => openFullscreen(countdown.deviceId, countdown.deviceName)}
+            {countdown.secondsLeft > 0 && (
+              <div className="text-2xl font-bold text-amber-700 font-mono">{fmt(countdown.secondsLeft)}</div>
+            )}
+            <button
+              onClick={() => openFullscreen(countdown.deviceId, countdown.deviceName)}
               className="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm hover:bg-amber-700 transition-colors">
-              Open Now
+              {countdown.secondsLeft <= 0 ? 'Reopen Display' : 'Open Now'}
             </button>
           </div>
         </div>

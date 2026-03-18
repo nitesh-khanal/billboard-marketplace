@@ -15,6 +15,9 @@ export default function Playback() {
   const socketRef = useRef(null);
   const timerRef = useRef(null);
 
+  const isKiosk = new URLSearchParams(window.location.search).get('kiosk') === 'true';
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
   const fetchAds = async () => {
     const res = await axios.get('/api/ads/device/' + deviceId);
     setAds(res.data);
@@ -49,7 +52,7 @@ export default function Playback() {
     };
     init();
 
-    socketRef.current = io(process.env.REACT_APP_API_URL || 'http://localhost:5000');
+    socketRef.current = io(API_URL);
     socketRef.current.emit('join-device', deviceId);
     socketRef.current.on('ad-deleted', () => {
       fetchAds().then(adList => {
@@ -71,7 +74,6 @@ export default function Playback() {
     };
   }, [deviceId]);
 
-  // Rotate through active ads every 10s
   useEffect(() => {
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
@@ -87,6 +89,41 @@ export default function Playback() {
 
   if (loading) return <div className="min-h-screen bg-gray-950 flex items-center justify-center text-white">Loading playback...</div>;
 
+  // ── Kiosk mode: full screen ad only ──
+  if (isKiosk) {
+    return (
+      <div className="w-screen h-screen bg-black flex items-center justify-center relative overflow-hidden">
+        <div className="absolute top-4 right-4 z-10 flex items-center space-x-1.5">
+          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+          <span className="text-xs text-green-400">LIVE</span>
+        </div>
+        {currentAd ? (
+          currentAd.fileType === 'video'
+            ? <video key={currentAd._id} src={API_URL + currentAd.fileUrl}
+                autoPlay loop muted className="w-full h-full object-cover" />
+            : <img key={currentAd._id} src={API_URL + currentAd.fileUrl}
+                alt={currentAd.adName} className="w-full h-full object-cover" />
+        ) : (
+          <div className="text-center text-gray-600">
+            <div className="w-16 h-16 border-2 border-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-3">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <p className="text-sm text-gray-500">{device?.deviceName}</p>
+            <p className="text-xs text-gray-600 mt-1">Waiting for ads...</p>
+          </div>
+        )}
+        {currentAd && (
+          <div className="absolute bottom-4 left-4 bg-black/50 px-3 py-1.5 rounded-lg">
+            <p className="text-xs text-white">{currentAd.adName}</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Normal playback page ──
   return (
     <div className="min-h-screen bg-gray-950 text-white">
       <div className="max-w-5xl mx-auto px-4 py-6">
@@ -101,12 +138,11 @@ export default function Playback() {
           </button>
         </div>
 
-        {/* Display screen */}
         <div className="bg-gray-900 rounded-2xl border border-gray-800 aspect-video flex items-center justify-center overflow-hidden mb-6 relative">
           {currentAd ? (
             currentAd.fileType === 'video'
-              ? <video key={currentAd._id} src={(process.env.REACT_APP_API_URL || 'http://localhost:5000') + currentAd.fileUrl} autoPlay loop muted className="w-full h-full object-cover" />
-              : <img key={currentAd._id} src={(process.env.REACT_APP_API_URL || 'http://localhost:5000') + currentAd.fileUrl} alt={currentAd.adName} className="w-full h-full object-cover" />
+              ? <video key={currentAd._id} src={API_URL + currentAd.fileUrl} autoPlay loop muted className="w-full h-full object-cover" />
+              : <img key={currentAd._id} src={API_URL + currentAd.fileUrl} alt={currentAd.adName} className="w-full h-full object-cover" />
           ) : (
             <div className="text-center text-gray-600">
               <div className="w-16 h-16 border-2 border-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-3">
@@ -128,7 +164,6 @@ export default function Playback() {
           </div>
         </div>
 
-        {/* Info cards */}
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
             <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Now Playing</p>
