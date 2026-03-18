@@ -116,14 +116,10 @@ export default function MyDevices() {
               <p className="text-xs text-gray-400">ID: {d.deviceId}</p>
               <p className="text-xs text-gray-400">{d.availabilitySchedule}</p>
             </div>
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="flex space-x-2">
               <button onClick={() => navigate('/playback/' + d._id)}
                 className="text-xs text-center py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-gray-600">
                 Playback
-              </button>
-              <button onClick={() => setScriptDevice(d)}
-                className="text-xs text-center py-2 border border-blue-200 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors">
-                Get Script
               </button>
               <button onClick={() => setConfirmId(d._id)}
                 className="text-xs text-center py-2 border border-red-200 text-red-500 rounded-lg hover:bg-red-50 transition-colors">
