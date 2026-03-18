@@ -18,6 +18,24 @@ export default function Playback() {
   const isKiosk = new URLSearchParams(window.location.search).get('kiosk') === 'true';
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
+  useEffect(() => {
+    if (!isKiosk) return;
+    const requestFS = () => {
+      const el = document.documentElement;
+      if (el.requestFullscreen) el.requestFullscreen();
+      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+      else if (el.mozRequestFullScreen) el.mozRequestFullScreen();
+      else if (el.msRequestFullscreen) el.msRequestFullscreen();
+    };
+    // Try immediately and also on first click anywhere
+    const timer = setTimeout(requestFS, 500);
+    document.addEventListener('click', requestFS, { once: true });
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('click', requestFS);
+    };
+  }, [isKiosk]);
+
   const fetchAds = async () => {
     const res = await axios.get('/api/ads/device/' + deviceId);
     setAds(res.data);
@@ -92,7 +110,11 @@ export default function Playback() {
   // ── Kiosk mode: full screen ad only ──
   if (isKiosk) {
     return (
-      <div className="w-screen h-screen bg-black flex items-center justify-center relative overflow-hidden">
+      <div className="w-screen h-screen bg-black flex items-center justify-center relative overflow-hidden cursor-pointer" onClick={() => {
+        const el = document.documentElement;
+        if (el.requestFullscreen) el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+      }}>
         <div className="absolute top-4 right-4 z-10 flex items-center space-x-1.5">
           <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
           <span className="text-xs text-green-400">LIVE</span>
