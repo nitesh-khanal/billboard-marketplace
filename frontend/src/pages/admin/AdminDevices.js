@@ -55,8 +55,12 @@ export default function AdminDevices({ token }) {
                   <span className={"inline-flex px-2 py-0.5 rounded-full text-xs font-medium " + (statusColor[d.status] || 'bg-gray-50 text-gray-600')}>{d.status}</span>
                 </td>
                 <td className="px-4 py-3">
-                  <button onClick={() => deleteDevice(d._id)}
-                    className="text-xs px-2 py-1 rounded border border-red-200 text-red-500 hover:bg-red-50 transition-colors">Delete</button>
+                <div className="flex space-x-2">
+  <button onClick={() => window.open('/playback/' + d._id, '_blank')}
+    className="text-xs px-2 py-1 rounded border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors">Playback</button>
+  <button onClick={() => deleteDevice(d._id)}
+    className="text-xs px-2 py-1 rounded border border-red-200 text-red-500 hover:bg-red-50 transition-colors">Delete</button>
+</div>
                 </td>
               </tr>
             ))}
