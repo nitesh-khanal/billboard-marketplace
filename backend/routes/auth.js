@@ -3,12 +3,14 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 
-const signToken = (id) => jwt.sign({ id }, process.env.JWT_SECRET || 'secret123', { expiresIn: '7d' });
+const signToken = (id) => jwt.sign({ id }, require('../config/jwt'), { expiresIn: '7d' });
 const userPayload = (u) => ({ id: u._id, name: u.name, email: u.email, currentRole: u.currentRole, walletBalance: u.walletBalance, isAdmin: u.isAdmin });
 
 router.post('/signup', async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, password } = req.body;
+    const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    if (typeof name !== 'string' || typeof password !== 'string') return res.status(400).json({ msg: 'Invalid signup fields' });
     if (!name || !email || !password) return res.status(400).json({ msg: 'All fields required' });
     if (await User.findOne({ email })) return res.status(400).json({ msg: 'Email already registered' });
     const user = new User({ name, email, password });
@@ -19,7 +21,9 @@ router.post('/signup', async (req, res) => {
 
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { password } = req.body;
+    const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    if (typeof password !== 'string') return res.status(400).json({ msg: 'Invalid credentials' });
     if (!email || !password) return res.status(400).json({ msg: 'All fields required' });
     const user = await User.findOne({ email });
     if (!user || !(await user.comparePassword(password))) return res.status(400).json({ msg: 'Invalid credentials' });

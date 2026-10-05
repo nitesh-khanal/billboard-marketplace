@@ -11,16 +11,12 @@ router.get('/balance', auth, async (req, res) => {
 });
 
 router.post('/add', auth, async (req, res) => {
-  try {
-    const { amount } = req.body;
-    if (!amount || amount <= 0) return res.status(400).json({ msg: 'Valid amount required' });
-    const user = await User.findById(req.user.id);
-    user.walletBalance = parseFloat((user.walletBalance + parseFloat(amount)).toFixed(2));
-    await user.save();
-    await Transaction.create({ user: user._id, amount: parseFloat(amount), type: 'credit', description: 'Added funds to wallet', balanceAfter: user.walletBalance });
-    res.json({ balance: user.walletBalance });
-  } catch (err) { res.status(500).json({ msg: 'Server error' }); }
+  try { res.json(await require('../services/payments').addDemoFunds(req.user.id, req.body.amount)); }
+  catch (err) { require('../utils/errors').sendError(res, err); }
 });
+router.get('/config', auth, (req, res) => res.json({
+  demoFundsEnabled: process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEMO_WALLET === 'true'
+}));
 
 router.get('/transactions', auth, async (req, res) => {
   try {

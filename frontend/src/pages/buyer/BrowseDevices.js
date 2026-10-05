@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 
@@ -9,13 +9,15 @@ export default function BrowseDevices({ onRented }) {
   const [form, setForm] = useState({ startDate: '', endDate: '' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const bookingKey = useRef('');
   const { updateBalance } = useAuth();
 
   useEffect(() => {
-    axios.get('/api/devices/available').then(r => setDevices(r.data)).finally(() => setLoading(false));
+    axios.get('/api/devices/available').then(r => setDevices(r.data)).catch(() => setError('Unable to load devices. Please try again.')).finally(() => setLoading(false));
   }, []);
 
-  const openRent = (device) => { setRenting(device); setError(''); setSuccess(''); setForm({ startDate: '', endDate: '' }); };
+  const openRent = (device) => { bookingKey.current = crypto.randomUUID(); setRenting(device); setError(''); setSuccess(''); setForm({ startDate: '', endDate: '' }); };
   const toUTC = (str) => {
     const [date, time] = str.split('T');
     const [y, mo, d] = date.split('-').map(Number);
@@ -23,24 +25,28 @@ export default function BrowseDevices({ onRented }) {
     return new Date(y, mo - 1, d, h, mi).toISOString();
   };
   const submitRent = async () => {
-    setError('');
+    if (submitting) return;
+    setError(''); setSubmitting(true);
     try {
+      if (!form.startDate || !form.endDate || new Date(form.startDate) <= new Date() || new Date(form.endDate) <= new Date(form.startDate)) throw new Error('Choose valid future rental dates');
       const res = await axios.post('/api/rentals', {
         deviceId: renting._id,
         startDate: toUTC(form.startDate),
         endDate: toUTC(form.endDate),
-      });
+      }, { headers: { 'Idempotency-Key': bookingKey.current } });
       updateBalance(res.data.newBalance);
       setSuccess('Device rented successfully!');
       setDevices(prev => prev.filter(d => d._id !== renting._id));
       setTimeout(() => { setRenting(null); onRented(); }, 1200);
-    } catch (err) { setError(err.response?.data?.msg || 'Rental failed'); }
+    } catch (err) { setError(err.response?.data?.msg || err.message || 'Rental failed'); }
+    finally { setSubmitting(false); }
   };
 
   if (loading) return <div className="text-sm text-gray-400">Loading devices...</div>;
 
   return (
     <div>
+      {error && !renting && <p role="alert" className="text-sm text-red-600 mb-4">{error}</p>}
       {!devices.length && <div className="text-center py-16 text-gray-400">No available devices right now</div>}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {devices.map(d => (
@@ -73,12 +79,12 @@ export default function BrowseDevices({ onRented }) {
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Start Date & Time</label>
-                <input type="datetime-local" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })}
+                <input disabled={submitting || !!success} type="datetime-local" value={form.startDate} onChange={e => { bookingKey.current = crypto.randomUUID(); setForm({ ...form, startDate: e.target.value }); }}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">End Date & Time</label>
-                <input type="datetime-local" value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })}
+                <input disabled={submitting || !!success} type="datetime-local" value={form.endDate} onChange={e => { bookingKey.current = crypto.randomUUID(); setForm({ ...form, endDate: e.target.value }); }}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black" />
               </div>
               {form.startDate && form.endDate && (
@@ -88,10 +94,10 @@ export default function BrowseDevices({ onRented }) {
                 </div>
               )}
               <div className="flex space-x-3 mt-2">
-                <button onClick={() => setRenting(null)}
+                <button disabled={submitting || !!success} onClick={() => setRenting(null)}
                   className="flex-1 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">Cancel</button>
-                <button onClick={submitRent}
-                  className="flex-1 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 transition-colors">Confirm Rental</button>
+                <button disabled={submitting || !!success || !form.startDate || !form.endDate} onClick={submitRent}
+                  className="flex-1 py-2 bg-black text-white rounded-lg text-sm hover:bg-gray-800 transition-colors">{submitting ? 'Booking...' : 'Confirm Rental'}</button>
               </div>
             </div>
           </div>

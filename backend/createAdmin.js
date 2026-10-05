@@ -6,11 +6,12 @@ require('dotenv').config();
 const mongoose = require('mongoose');
 const User = require('./models/User');
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@billboard.com';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Admin@1234';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const ADMIN_NAME = 'Admin';
 
 async function createAdmin() {
+  if (!ADMIN_EMAIL || !ADMIN_PASSWORD || ADMIN_PASSWORD.length < 12) throw new Error('Set ADMIN_EMAIL and ADMIN_PASSWORD (at least 12 characters)');
   await mongoose.connect(process.env.MONGO_URI);
   const existing = await User.findOne({ email: ADMIN_EMAIL });
   if (existing) {
@@ -21,7 +22,6 @@ async function createAdmin() {
     await User.create({ name: ADMIN_NAME, email: ADMIN_EMAIL, password: ADMIN_PASSWORD, isAdmin: true });
     console.log('Admin user created!');
     console.log('Email:', ADMIN_EMAIL);
-    console.log('Password:', ADMIN_PASSWORD);
   }
   process.exit(0);
 }

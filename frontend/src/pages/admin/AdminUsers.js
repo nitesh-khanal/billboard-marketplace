@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
 
 const API = process.env.REACT_APP_API_URL || '';
@@ -10,7 +10,7 @@ export default function AdminUsers({ token }) {
   const [toast, setToast] = useState('');
   const [search, setSearch] = useState('');
 
-  const headers = { Authorization: 'Bearer ' + token };
+  const headers = useMemo(() => ({ Authorization: 'Bearer ' + token }), [token]);
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
 
   useEffect(() => {
@@ -18,22 +18,13 @@ export default function AdminUsers({ token }) {
       .then(r => setUsers(r.data))
       .catch(err => setError(err.response?.data?.msg || 'Failed to load users: ' + err.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [headers]);
 
   const toggleBan = async (id) => {
     try {
       const res = await axios.put(API + '/api/admin/users/' + id + '/ban', {}, { headers });
       setUsers(prev => prev.map(u => u._id === id ? { ...u, isBanned: res.data.isBanned } : u));
       showToast(res.data.msg);
-    } catch (err) { showToast('Failed: ' + (err.response?.data?.msg || err.message)); }
-  };
-
-  const deleteUser = async (id) => {
-    if (!window.confirm('Delete this user permanently?')) return;
-    try {
-      await axios.delete(API + '/api/admin/users/' + id, { headers });
-      setUsers(prev => prev.filter(u => u._id !== id));
-      showToast('User deleted');
     } catch (err) { showToast('Failed: ' + (err.response?.data?.msg || err.message)); }
   };
 
@@ -79,8 +70,7 @@ export default function AdminUsers({ token }) {
                       className={"text-xs px-2 py-1 rounded border transition-colors " + (u.isBanned ? 'border-green-200 text-green-600 hover:bg-green-50' : 'border-yellow-200 text-yellow-600 hover:bg-yellow-50')}>
                       {u.isBanned ? 'Unban' : 'Ban'}
                     </button>
-                    <button onClick={() => deleteUser(u._id)}
-                      className="text-xs px-2 py-1 rounded border border-red-200 text-red-500 hover:bg-red-50 transition-colors">Delete</button>
+
                   </div>
                 </td>
               </tr>

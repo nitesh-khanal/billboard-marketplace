@@ -8,6 +8,6 @@ const deviceSchema = new mongoose.Schema({
   deviceId: { type: String, required: true, unique: true, trim: true },
   availabilitySchedule: { type: String, default: '24/7' },
   owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  status: { type: String, enum: ['available', 'rented', 'offline'], default: 'available' },
+  status: { type: String, enum: ['available', 'rented', 'offline', 'removed'], default: 'available' },
 }, { timestamps: true });
 module.exports = mongoose.model('Device', deviceSchema);

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import io from 'socket.io-client';
@@ -8,7 +8,7 @@ export default function Playback() {
   const navigate = useNavigate();
   const [device, setDevice] = useState(null);
   const [ads, setAds] = useState([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [, setCurrentIndex] = useState(0);
   const [currentAd, setCurrentAd] = useState(null);
   const [nextAd, setNextAd] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -36,11 +36,11 @@ export default function Playback() {
     };
   }, [isKiosk]);
 
-  const fetchAds = async () => {
+  const fetchAds = useCallback(async () => {
     const res = await axios.get('/api/ads/device/' + deviceId);
     setAds(res.data);
     return res.data;
-  };
+  }, [deviceId]);
 
   const getCurrentAndNext = (adList, idx) => {
     const now = new Date();
@@ -72,25 +72,29 @@ export default function Playback() {
 
     socketRef.current = io(API_URL);
     socketRef.current.emit('join-device', deviceId);
-    socketRef.current.on('ad-deleted', () => {
+    const refresh = () => {
       fetchAds().then(adList => {
         const { cur, nxt } = getCurrentAndNext(adList, 0);
         setCurrentAd(cur); setNextAd(nxt);
-      });
+      }).catch(console.error);
+    };
+    socketRef.current.on('connect', () => {
+      socketRef.current.emit('join-device', deviceId);
+      refresh();
     });
-    socketRef.current.on('ad-scheduled', () => {
-      fetchAds().then(adList => {
-        const { cur, nxt } = getCurrentAndNext(adList, 0);
-        setCurrentAd(cur); setNextAd(nxt);
-      });
-    });
+    socketRef.current.on('ad-deleted', refresh);
+    socketRef.current.on('ad-scheduled', refresh);
+    socketRef.current.on('schedule-changed', refresh);
+    // Rental cancellations can change playback without an ad event.
+    const refreshTimer = setInterval(refresh, 30000);
 
     return () => {
+      clearInterval(refreshTimer);
       socketRef.current?.emit('leave-device', deviceId);
       socketRef.current?.disconnect();
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [deviceId]);
+  }, [deviceId, API_URL, fetchAds]);
 
   useEffect(() => {
     if (timerRef.current) clearInterval(timerRef.current);

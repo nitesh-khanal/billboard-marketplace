@@ -9,21 +9,26 @@ export default function Wallet() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [demoFundsEnabled, setDemoFundsEnabled] = useState(false);
 
   useEffect(() => {
-    axios.get('/api/wallet/transactions').then(r => setTransactions(r.data));
-  }, []);
+    Promise.all([axios.get('/api/wallet/transactions'), axios.get('/api/wallet/config'), axios.get('/api/wallet/balance')])
+      .then(([history, config, balance]) => {
+        setTransactions(history.data); setDemoFundsEnabled(config.data.demoFundsEnabled); updateBalance(balance.data.balance);
+      }).catch(err => setError(err.response?.data?.msg || 'Unable to load wallet'));
+  }, [updateBalance]);
 
   const addFunds = async () => {
     setError(''); setSuccess(''); setLoading(true);
     try {
+      if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) throw new Error('Enter a positive amount');
       const res = await axios.post('/api/wallet/add', { amount: parseFloat(amount) });
       updateBalance(res.data.balance);
-      setSuccess('$' + parseFloat(amount).toFixed(2) + ' added to wallet!');
+      setSuccess('Demo balance: $' + parseFloat(amount).toFixed(2) + ' added to wallet!');
       setAmount('');
       const txRes = await axios.get('/api/wallet/transactions');
       setTransactions(txRes.data);
-    } catch (err) { setError(err.response?.data?.msg || 'Failed to add funds'); }
+    } catch (err) { setError(err.response?.data?.msg || err.message || 'Failed to add funds'); }
     finally { setLoading(false); }
   };
 
@@ -40,9 +45,11 @@ export default function Wallet() {
           <p className="text-xs text-gray-400 mt-2">{user?.name}</p>
         </div>
         <div className="bg-white border border-gray-100 rounded-2xl p-6">
-          <p className="text-sm font-medium text-gray-700 mb-3">Add Funds</p>
+          <p className="text-sm font-medium text-gray-700 mb-3">Demo Funds</p>
           {error && <div className="mb-2 p-2 bg-red-50 text-red-600 rounded text-xs">{error}</div>}
           {success && <div className="mb-2 p-2 bg-green-50 text-green-600 rounded text-xs">{success}</div>}
+          <p className="text-xs text-gray-500 mb-3">{demoFundsEnabled ? 'For project demonstrations only. No money is charged.' : 'Adding funds is unavailable. A payment provider has not been connected.'}</p>
+          {demoFundsEnabled && <>
           <div className="flex space-x-2">
             <input type="number" min="1" step="0.01" value={amount} onChange={e => setAmount(e.target.value)}
               placeholder="Amount ($)" className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-black" />
@@ -59,8 +66,10 @@ export default function Wallet() {
               </button>
             ))}
           </div>
+          </>}
         </div>
       </div>
+      {error && <p role="alert" className="text-sm text-red-600 mb-4">{error}</p>}
       <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-50">
           <h3 className="font-medium text-gray-900">Transaction History</h3>
